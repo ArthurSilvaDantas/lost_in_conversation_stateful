@@ -20,12 +20,13 @@ Also,
 """
 
 class ConversationSimulatorSnowball:
-    def __init__(self, task_name, sample, assistant_model="gpt-4o-mini", system_model="gpt-4o-mini", user_model="gpt-4o-mini"): # max_turns=10
-        assert task_name in ["database", "wmt", "summary", "math", "apis", "data2text", "python"]
+    def __init__(self, task_name, sample, assistant_model="gpt-4o-mini", system_model="gpt-4o-mini", user_model="gpt-4o-mini", log_folder="logs", dataset_fn=None):
+        assert task_name in ["database", "wmt", "summary", "math", "apis", "data2text", "python", "actions", "code", "translation"]
 
         self.task_name = task_name
         self.task = get_task(task_name)
-        self.dataset_fn = self.task.get_dataset_file()
+        self.dataset_fn = dataset_fn if dataset_fn is not None else self.task.get_dataset_file()
+        self.log_folder = log_folder
         self.sample = sample
         self.assistant_model = assistant_model
         self.system_model = system_model
@@ -37,6 +38,7 @@ class ConversationSimulatorSnowball:
         self.answer_description = self.task.get_answer_description()
         self.user_response_template = snowball_message
 
+        self.max_turns = max(10, 3 * len(sample["shards"]))
         self.trace = [{"role": "system", "content": self.system_message, "timestamp": date_str()}]
 
     def get_num_turns(self, participant="assistant"):
@@ -52,6 +54,9 @@ class ConversationSimulatorSnowball:
         shards = self.sample["shards"]
 
         while not is_completed:
+            if self.get_num_turns("assistant") >= self.max_turns:
+                break
+
             revealed_shard_ids = set([msg["content"]["shard_id"] for msg in self.trace if msg["role"] == "log" and msg["content"]["type"] == "hint_revealed"])
             all_shards_revealed = len(revealed_shard_ids) == len(shards)
             if all_shards_revealed:
@@ -122,7 +127,7 @@ class ConversationSimulatorSnowball:
             elif system_verification_response["response_type"] in ["clarification", "discussion"]:
                 continue # end of the turn
         if save_log:
-            log_conversation("snowball", self.task.get_task_name(), self.sample["task_id"], self.dataset_fn, self.assistant_model, self.system_model, self.user_model, self.trace, is_correct, score)
+            log_conversation("snowball", self.task.get_task_name(), self.sample["task_id"], self.dataset_fn, self.assistant_model, self.system_model, self.user_model, self.trace, is_correct, score, log_folder=self.log_folder)
         return is_correct, score
 
 
