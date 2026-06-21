@@ -9,6 +9,8 @@ from datetime import datetime
 
 
 def get_log_files(conv_type, task_name, assistant_model, force_create=False, log_folder="logs"):
+    if log_folder is None:
+        log_folder = "logs"
     # Sanitize the assistant_model name for Windows compatibility
     # Replace characters that are invalid in Windows filenames: < > : " / \ | ? *
     sanitized_model = assistant_model
